@@ -80,8 +80,10 @@ class Graph {
     this.arrowheadSize = 10; // Величина, которая характеризует размер стрелки, 10 - по умолчанию, чем больше величина
     // тем больше размер стрелки
 
-    this.path = [];
-    this.minPathLength = 10000;
+    this.pathShortest = [];
+    this.pathIncludesVertex = [];
+    this.pathShortestLength = 10000;
+    this.pathIncludesVertexLength = 10000;
   }
 
   /**
@@ -1352,14 +1354,21 @@ class Graph {
         const to = parts[1].trim().split(" ")[0]; // название вершины куда пришло ребро
 
         this.#shortestPath(lines, "s1", to, "");
+        this.#shortestPathIncludesVertex(lines, "s1", to, from, "");
         console.log(
-          "Shortest path to current vertex: ",
+          "Shortest path to: ",
           to,
           "path: ",
-          graph.path
+          graph.pathShortest,
+          "\tPath includes from: ",
+          from,
+          "path: ",
+          graph.pathIncludesVertex
         );
-        graph.path = "";
-        graph.minPathLength = 10000;
+        graph.pathShortest = "";
+        graph.pathIncludesVertex = "";
+        graph.pathShortestLength = 10000;
+        graph.pathIncludesVertexLength = 10000;
 
         const fromVertexLevel = parseInt(this.#findLevel(levels, from)); // получаем уровень на котором располагается
         // вершина из которой выходит ребро
@@ -1929,13 +1938,47 @@ class Graph {
       const members = lines[i].trim().split(" ");
       if (members[0] === from) {
         if (members[2] === to) {
-          if ((indexes + i).length < graph.minPathLength) {
-            graph.path = (indexes + i).split(" ");
-            graph.minPathLength = (indexes + i).length;
+          if ((indexes + i).length < graph.pathShortestLength) {
+            graph.pathShortest = (indexes + i).split(" ");
+            graph.pathShortestLength = (indexes + i).length;
           }
           return;
         }
         this.#shortestPath(lines, members[2], to, indexes + i + " ");
+      }
+    }
+  }
+
+  #shortestPathIncludesVertex(lines, from, to, includes, indexes) {
+    if (indexes.length >= lines.length * 2) {
+      return;
+    }
+    for (let i = 0; i < lines.length; ++i) {
+      const members = lines[i].trim().split(" ");
+      if (members[0] === from) {
+        if (members[2] === to) {
+          console.log(
+            "????",
+            includes,
+            (indexes + i).split(" ").includes(includes)
+          );
+          if (
+            (indexes + i).split(" ").includes(includes) &&
+            (indexes + i).length < graph.pathIncludesVertexLength
+          ) {
+            console.log("Found path that includes");
+            graph.pathIncludesVertex = (indexes + i).split(" ");
+            graph.pathIncludesVertexLength = (indexes + i).length;
+          }
+          return;
+        }
+        this.#shortestPathIncludesVertex(
+          lines,
+          members[2],
+          to,
+          includes,
+          indexes + i + " "
+        );
       }
     }
   }
