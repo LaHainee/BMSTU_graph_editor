@@ -301,6 +301,10 @@ class Graph {
           this.#checkParallelismProperty(fistVertexID);
           // Проверяем свойство 'parallelism' у второй  вершины
           this.#checkParallelismProperty(secondVertexID);
+
+          setInformationConsoleMessage(
+            "Вы успешно удалили ребро. Выберите действие"
+          );
         }
       });
     });
@@ -690,7 +694,10 @@ class Graph {
     this.#renderVertices(idx, lines); // Визуализация вершин графа (самый интересный алгоритм в проекте=) )
     this.#renderEdges(idx, lines);
     this.parseParallelism(lines);
-    this.edges = {};
+
+    setInformationConsoleMessage(
+      "Граф успешно импортирован. Выберите действие"
+    );
   }
 
   parseParallelism(lines) {
@@ -811,6 +818,7 @@ class Graph {
    * @param edge - Удаляемое ребро
    */
   #deleteEdgeFromConnectedVertices = (firstVertexID, secondVertexID, edge) => {
+    console.log("Delete:", firstVertexID, secondVertexID, edge);
     // Если предикат используется только для переданного ребра, то удаляем информацию о нем из объекта predicates
     if (this.#isLastUsedEdgePredicate(edge["predicate"])) {
       delete this.predicates[edge["predicate"]];
@@ -823,11 +831,11 @@ class Graph {
     // Удаляем ребро из массива ребер первой вершины
     this.vertices[firstVertexID]["edges"] = this.vertices[firstVertexID][
       "edges"
-    ].filter((edge) => edge.value !== secondVertexID);
+    ].filter((e) => e["metadata"]["edgeID"] !== edge["metadata"]["edgeID"]);
     // Удаляем ребро из массива ребер второй вершины
     this.vertices[secondVertexID]["edges"] = this.vertices[secondVertexID][
       "edges"
-    ].filter((edge) => edge.value !== firstVertexID);
+    ].filter((e) => e["metadata"]["edgeID"] !== edge["metadata"]["edgeID"]);
   };
 
   /**
@@ -1129,7 +1137,6 @@ class Graph {
 
     // Итерируемся по объекту vertices
     Object.values(this.vertices).forEach((vertex) => {
-      console.log(vertex["metadata"]["label"]);
       // Стрелка в текстовом формате, которая показывает, что между вершинами есть ребро. Заметим, что по умолчанию
       // стрелка "->", но если у вершины есть свойство "parallelism" со значением "threading", то стрелка меняется на "=>"
       const transition =
@@ -1323,17 +1330,18 @@ class Graph {
     // графовой модели
 
     let levels = {}; // объект для хранения уровней вершин
+    let vertices = new Set();
 
-    for (let i = 0; i !== 10; ++i) {
-      for (let line of lines) {
-        line = line.trim();
+    for (let j = 0; j < lines.length; ++j) {
+      for (let i = 0; i < lines.length; ++i) {
+        lines[i] = lines[i].trim();
 
         // Нашли стартовую вершину
-        if (line.indexOf("__BEGIN__") !== -1) {
+        if (lines[i].indexOf("__BEGIN__") !== -1) {
           levels["1"] = []; // в объекте levels по ключу "1" создаем пустой массив
           levels["1"].push({
             // в массив добавляем название стартовой вершины
-            [line.substring(line.lastIndexOf(" ") + 1)]: [], // название последней вершины находится легко: из строки
+            [lines[i].substring(lines[i].lastIndexOf(" ") + 1)]: [], // название последней вершины находится легко: из строки
             // берем подстроку, которая начинается с последнего пробела, это и будет название нашей вершины
           });
           continue; // т.к. мы нашли стартовую вершину, мы инициализировали объект levels, выполнение далее идущего кода
@@ -1342,33 +1350,21 @@ class Graph {
 
         // Нашли конечную вершину => просто переходим к следующей строке описания графовой модели, смысла обрабатывать эту
         // ситуацию отдельно нет, т.к. в ходе работы алгоритма, правая вершина и так окажется на самом последнем уровне,
-        if (line.indexOf("__END__") !== -1) {
+        if (lines[i].indexOf("__END__") !== -1) {
           continue;
         }
 
         // Наша задача получить массив из двух элементов, 1-й элемент это вершина из которой выходит ребро, 2-й элемент
         // это вершина в которую приходит ребро (s1 => s2, parts[0] = s1, parts[1] = s2)
         const parts =
-          line.indexOf("->") !== -1 ? line.split("->") : line.split("=>");
+          lines[i].indexOf("->") !== -1
+            ? lines[i].split("->")
+            : lines[i].split("=>");
         const from = parts[0].trim(); // название вершины откуда пришло ребро
         const to = parts[1].trim().split(" ")[0]; // название вершины куда пришло ребро
 
-        this.#shortestPath(lines, "s1", to, "");
-        this.#shortestPathIncludesVertex(lines, "s1", to, from, "");
-        console.log(
-          "Shortest path to: ",
-          to,
-          "path: ",
-          graph.pathShortest,
-          "\tPath includes from: ",
-          from,
-          "path: ",
-          graph.pathIncludesVertex
-        );
-        graph.pathShortest = "";
-        graph.pathIncludesVertex = "";
-        graph.pathShortestLength = 10000;
-        graph.pathIncludesVertexLength = 10000;
+        vertices.add(from);
+        vertices.add(to);
 
         const fromVertexLevel = parseInt(this.#findLevel(levels, from)); // получаем уровень на котором располагается
         // вершина из которой выходит ребро
@@ -1400,6 +1396,13 @@ class Graph {
           continue;
         }
 
+        /*this.#shortestPath(lines, "s1", to, "");
+        this.#shortestPathIncludesVertex(lines, "s1", to, i.toString(), "");
+        graph.pathShortest = "";
+        graph.pathIncludesVertex = "";
+        graph.pathShortestLength = 10000;
+        graph.pathIncludesVertexLength = 10000;*/
+
         // Если у объекта levels отсутствует свойство fromVertexLevel + 1, то добавляем это свойство и пустой массив
         // как значение этого свойства
         if (!levels.hasOwnProperty(fromVertexLevel + 1)) {
@@ -1423,17 +1426,20 @@ class Graph {
         // Если на предыдущем шаге не встретили такую вершину, то просто по ключу fromVertexLevel + 1 добавляем
         // новый элемент в массив, элемент представляет из себя объект с ключом to, и массивом по значению, массив
         // содержит один элемент - это вершина from
-        if (!flag) {
+        if (!flag && !levels[fromVertexLevel + 1].hasOwnProperty(to)) {
           levels[fromVertexLevel + 1].push({ [to]: [from] });
         }
       }
     }
 
     // Проверяем корректность созданного объекта levels, более подробное описание - JSdoc к функции checkVerticesLevels
-    const verticesWithNoneVisibility = this.#checkVerticesLevels(levels); // получили объект, который содержит информацию
+    const verticesWithNoneVisibility = this.#checkVerticesLevels(
+      levels,
+      vertices
+    ); // получили объект, который содержит информацию
     // о вершинах которые не надо отрисовывать
 
-    console.log("Current level state:", levels);
+    console.log("None visibility:", verticesWithNoneVisibility);
 
     // Находим уровень на котором расположено больше всего вершин, с него мы начинаем строить граф, влево и вправо
     let highest = []; // массив для хранения вершин самого "высокого" уровня
@@ -1456,7 +1462,8 @@ class Graph {
 
     // Начинаем отрисовку графа с отрисовки уровня с самым большим количеством вершин в нем
     let cx = startX + horizontalOffset * (parseInt(highestLevel) - 1); // координата X этого уровня
-    let cy = startY; // координата Y равна стартовой позиции по координате Y
+    let cy =
+      startY - verticalOffset * verticesWithNoneVisibility[highestLevel].length; // координата Y равна стартовой позиции по координате Y
     // Итерируемся по массиву - строим вершины
     highest.forEach((vertex) => {
       Object.keys(vertex).forEach((current) => {
@@ -1589,9 +1596,10 @@ class Graph {
    * вершину на уровень где больше всего вершин (это необходимо для корректной отрисовки графа)
    *
    * @param levels - объект который содержит уровни вершин
+   * @param vertices - коллекция вершин, которые используются в графовой модели
    * @returns {{}} - объект вершин которые необходимо скрыть при отрисовке
    */
-  #checkVerticesLevels = (levels) => {
+  #checkVerticesLevels = (levels, vertices) => {
     let verticesWithNoneVisibility = {}; // Объект для хранения вершин, которые находятся не на своем уровне, в дальнейшем при
     // отрисовке вершин, мы будем проверять, что вершина отсутствует в этом объекте
     Object.keys(levels).forEach((level) => {
@@ -1601,22 +1609,27 @@ class Graph {
     });
 
     // Поиск дубликата вершины, который располагается на более раннем уровне
-    loop: for (const level in levels) {
-      for (const elements of levels[level]) {
-        for (const vertex in elements) {
-          for (const level1 in levels) {
-            if (level1 === level) {
-              continue loop;
-            }
-            for (const elements1 of levels[level1]) {
-              for (const vertex1 in elements1) {
-                if (vertex === vertex1) {
-                  elements[vertex] = elements[vertex].concat(
-                    elements1[vertex1]
-                  );
-                  verticesWithNoneVisibility[level1].push(vertex1);
+
+    for (const vertex of vertices) {
+      const vertexLastLevel = this.#findLevel(levels, vertex);
+
+      for (const level in levels) {
+        if (level === vertexLastLevel) {
+          break;
+        }
+
+        for (const elements of levels[level]) {
+          for (const v in elements) {
+            if (v === vertex) {
+              console.log("Found vertex in incorrect level, vertex:", v);
+
+              for (const e of levels[vertexLastLevel]) {
+                if (e.hasOwnProperty(v)) {
+                  e[v] = e[v].concat(elements[v]);
                 }
               }
+
+              verticesWithNoneVisibility[level].push(v);
             }
           }
         }
@@ -1641,10 +1654,10 @@ class Graph {
                 if (levels[fromVertexLevel][i].hasOwnProperty(fromVertex)) {
                   idx = i;
                   el = levels[fromVertexLevel][i];
+                  levels[fromVertexLevel].splice(idx, 1);
+                  levels[highestLevel].push(el);
                 }
               }
-              levels[fromVertexLevel].splice(idx, 1);
-              levels[highestLevel].push(el);
             }
           }
         }
@@ -1678,6 +1691,7 @@ class Graph {
         lvl = level;
       }
     });
+
     return lvl;
   };
 
@@ -1782,17 +1796,18 @@ class Graph {
       // Получаем координаты по X для вершины из которой выходит ребро и вершины в которую приходит ребро
       let fromX = 0,
         toX = 0;
-      Object.values(this.vertices).forEach((vertex) => {
-        if (vertex["metadata"]["label"] === fromID) {
-          fromX = parseInt(vertex["metadata"]["position"]["x"]);
+      Object.keys(this.vertices).forEach((vertex) => {
+        if (vertex === fromID) {
+          fromX = parseInt(this.vertices[vertex]["metadata"]["position"]["x"]);
         }
-        if (vertex["metadata"]["label"] === toID) {
-          toX = parseInt(vertex["metadata"]["position"]["x"]);
+        if (vertex === toID) {
+          toX = parseInt(this.vertices[vertex]["metadata"]["position"]["x"]);
         }
       });
 
       // Если вершина в которую приходит ребро находится левее чем вершина из которой выходит ребро, то вероятно это
       // цикл и стоит отложить отрисовку этих ребер, поэтому мы сохраняем их в отдельный массив
+      console.log("toX", toX, "fromX", fromX);
       if (toX < fromX) {
         skippedLines.push(line);
       } else {
@@ -1957,20 +1972,15 @@ class Graph {
       const members = lines[i].trim().split(" ");
       if (members[0] === from) {
         if (members[2] === to) {
-          console.log(
-            "????",
-            includes,
-            (indexes + i).split(" ").includes(includes)
-          );
+          const pathMembers = (indexes + i).split(" ");
           if (
-            (indexes + i).split(" ").includes(includes) &&
-            (indexes + i).length < graph.pathIncludesVertexLength
+            pathMembers.lastIndexOf(includes) === pathMembers.length - 1 &&
+            pathMembers.length < graph.pathIncludesVertexLength
           ) {
-            console.log("Found path that includes");
-            graph.pathIncludesVertex = (indexes + i).split(" ");
-            graph.pathIncludesVertexLength = (indexes + i).length;
+            graph.pathIncludesVertex = pathMembers;
+            graph.pathIncludesVertexLength = pathMembers.length;
+            return;
           }
-          return;
         }
         this.#shortestPathIncludesVertex(
           lines,
@@ -2138,9 +2148,11 @@ const fileToText = (file, callback) => {
 };
 const UploadHandler = () => {
   const file = ImportADOTButton.files.item(0);
-  fileToText(file, (text) => {
-    graph.ImportADOT(text);
-  });
+  if (file) {
+    fileToText(file, (text) => {
+      graph.ImportADOT(text);
+    });
+  }
 };
 ImportADOTButton.addEventListener("change", UploadHandler);
 
