@@ -41,9 +41,10 @@ const SetEdgeButton = document.getElementById("set_edge_button"); // Кнопк�
 const SetVertexButton = document.getElementById("set_vertex_button"); // Кнопка "Добавить вершину"
 const DeleteVertexButton = document.getElementById("remove_vertex_button"); // Кнопка "Удалить вершину"
 const DeleteEdgeButton = document.getElementById("remove_edge_button"); // Кнопка "Удалить ребро"
-const ClearCanvasButton = document.getElementById("clear_canvas"); // Кнопка "Очистить холст"
-const ExportADOTButton = document.getElementById("export_adot"); // Кнопка "Экспортировать в формат aDOT"
+const ClearCanvasButton = document.getElementById("clear_canvas_button"); // Кнопка "Очистить холст"
+const ExportADOTButton = document.getElementById("export_adot_button"); // Кнопка "Экспортировать в формат aDOT"
 const ImportADOTButton = document.getElementById("input_adot"); // Кнопка "Импортировать из формата aDOT"
+const FindCyclesButton = document.getElementById("find_cycles_button"); // Кнопка найти циклы
 const RightSidebarBlock = document.getElementsByClassName(
   "right-sidebar-block"
 )[0]; // Объект блока правого сайдбара, необходим для того, чтобы скрывать или показывать пользователю поля ввода в
@@ -116,6 +117,7 @@ class Graph {
       this.radius,
       this.borderWidth
     );
+    CanvasChangeBorderColor([id], "#B92808");
 
     // Сохраняем позицию созданной вершины в массиве createdVerticesPositions (для чего он нужен описано в
     // комментариях в конструкторе класса)
@@ -192,6 +194,8 @@ class Graph {
           },
         };
 
+        CanvasChangeBorderColor([id], "#000000");
+        DOMChangeColor(lastButtonSelected);
         setInformationConsoleMessage(
           `Вы успешно добавили метку для вершины. Выберите действие`
         );
@@ -259,6 +263,9 @@ class Graph {
 
     // Из объекта vertices, который хранит все вершины графа удаляем вершину
     delete this.vertices[vertexID];
+
+    DOMChangeColor(lastButtonSelected);
+    setInformationConsoleMessage("Вершина успешно удалена");
   }
 
   /**
@@ -302,9 +309,8 @@ class Graph {
           // Проверяем свойство 'parallelism' у второй  вершины
           this.#checkParallelismProperty(secondVertexID);
 
-          setInformationConsoleMessage(
-            "Вы успешно удалили ребро. Выберите действие"
-          );
+          DOMChangeColor(lastButtonSelected);
+          setInformationConsoleMessage("Вы успешно удалили ребро");
         }
       });
     });
@@ -318,6 +324,7 @@ class Graph {
    * @returns {boolean} - true - успешно построили ребро, false - произошла ошибка
    */
   AddEdge(fromVertexID, toVertexID) {
+    CanvasChangeBorderColor([fromVertexID, toVertexID], "#000000");
     // Проверка, что пользователь не пытается построить ребро из вершины в нее же саму
     if (fromVertexID === toVertexID) {
       setInformationConsoleMessage(
@@ -372,6 +379,7 @@ class Graph {
       );
       edgeType = "bezier"; // Тип построения ребра - кривая Безье
     }
+    CanvasChangeBorderColor([id], "#B92808");
 
     // true - из вершины выходит более 1 ребра, следовательно необходимо уточнение параллелизма, если этого свойства
     // не было ранее
@@ -457,9 +465,12 @@ class Graph {
             actionsDisabled = false;
             // Скрываем видимость блока правого сайдбара
             RightSidebarBlock.style.display = "none";
+
             // Показываем пользователю информационное сообщение в консоли (нижний сайдбар)
+            DOMChangeColor(lastButtonSelected);
+            CanvasChangeBorderColor([id], "#000000");
             setInformationConsoleMessage(
-              `Вы успешно добавили метку для ребра. Выберите действие`
+              `Вы успешно добавили метку для ребра.`
             );
           } else {
             // Если необходимо уточнение информации о предикате
@@ -628,6 +639,9 @@ class Graph {
           // Скрываем видимость блока правого сайдбара
           RightSidebarBlock.style.display = "none";
           // Показываем пользователю информационное сообщение в консоли (нижний сайдбар)
+
+          DOMChangeColor(lastButtonSelected);
+          CanvasChangeBorderColor([id], "#000000");
           setInformationConsoleMessage(
             `Вы успешно добавили метаинформацию для ребра. Выберите действие`
           );
@@ -650,6 +664,7 @@ class Graph {
    * @returns {boolean} - true - экспорт завершен успешно
    */
   ExportADOT(startVertexID, endVertexID) {
+    CanvasChangeBorderColor([startVertexID, endVertexID], "#000000");
     // Получаем текстовое описание графа в формате aDOT
     const text = this.#parseToADOT(startVertexID, endVertexID);
 
@@ -668,6 +683,7 @@ class Graph {
         window.URL.revokeObjectURL(url);
       }, 0);
 
+      DOMChangeColor(lastButtonSelected);
       // Экспорт завершен успешно
       return true;
     }
@@ -693,42 +709,17 @@ class Graph {
 
     this.#renderVertices(idx, lines); // Визуализация вершин графа (самый интересный алгоритм в проекте=) )
     this.#renderEdges(idx, lines);
-    this.parseParallelism(lines);
+    this.#parseParallelism(lines);
 
     setInformationConsoleMessage(
       "Граф успешно импортирован. Выберите действие"
     );
   }
 
-  parseParallelism(lines) {
-    let idx = 0;
-    while (
-      lines[idx].indexOf("parallelism") === -1 &&
-      idx !== lines.length - 1
-    ) {
-      ++idx;
-    }
-    while (lines[idx].indexOf("parallelism") !== -1) {
-      const parts = lines[idx].split(" ");
-      const label = parts[0].trim();
-      const parallelismMethod = parts[1].substring(
-        parts[1].indexOf("=") + 1,
-        parts[1].indexOf("]")
-      );
-      for (const vertex in this.vertices) {
-        if (this.vertices[vertex]["metadata"]["label"] === label) {
-          this.vertices[vertex]["parallelism"] = parallelismMethod;
-        }
-      }
-      ++idx;
-    }
-  }
-
   /**
    * Публичная функция-член реализующая полную очистку экрана
-   *
    */
-  Clear() {
+  Clear = () => {
     this.vertices = {}; // Очищаем объект vertices
     this.vertexID = 0; // ID вершин будут начинаться с 1
     this.edgeID = 0; // ID ребер будет начинаться с 1
@@ -739,7 +730,9 @@ class Graph {
     this.edges = {}; // Очищаем объект edges
     CanvasClearAll(); // Очищаем сам холст
     setInformationConsoleMessage("Холст успешно очищен");
-  }
+  };
+
+  FindCycles() {}
 
   /**
    * Приватная функция-член класс, которая проверяет позицию вершины. Для этого мы итерируемся по массиву
@@ -1335,7 +1328,6 @@ class Graph {
     for (let j = 0; j < lines.length; ++j) {
       for (let i = 0; i < lines.length; ++i) {
         lines[i] = lines[i].trim();
-
         // Нашли стартовую вершину
         if (lines[i].indexOf("__BEGIN__") !== -1) {
           levels["1"] = []; // в объекте levels по ключу "1" создаем пустой массив
@@ -1376,7 +1368,10 @@ class Graph {
         }
 
         // Проверяем, что текущая связь между вершинами является циклом
-        let isCycle = false; // флаг
+        if (this.#checkIsCycle(levels, from, to)) {
+          continue;
+        }
+        /*let isCycle = false; // флаг
         // Итерируемся по объекту levels
         Object.values(levels).forEach((level) => {
           // Для каждого уровня нам необходимо просмотреть массив объектов этого уровня
@@ -1394,7 +1389,7 @@ class Graph {
         });
         if (isCycle) {
           continue;
-        }
+        }*/
 
         /*this.#shortestPath(lines, "s1", to, "");
         this.#shortestPathIncludesVertex(lines, "s1", to, i.toString(), "");
@@ -1440,6 +1435,8 @@ class Graph {
     // о вершинах которые не надо отрисовывать
 
     console.log("None visibility:", verticesWithNoneVisibility);
+
+    console.log(JSON.stringify(levels));
 
     // Находим уровень на котором расположено больше всего вершин, с него мы начинаем строить граф, влево и вправо
     let highest = []; // массив для хранения вершин самого "высокого" уровня
@@ -1579,6 +1576,44 @@ class Graph {
       }
       ++rightLevel;
     }
+  };
+
+  /*#checkIsCycle = (levels, from, to) => {
+    let isCycle = false;
+    Object.values(levels).forEach((level) => {
+      // Для каждого уровня нам необходимо просмотреть массив объектов этого уровня
+      level.forEach((vertex) => {
+        // Для каждого элемента массива - это объект итерируемся по свойствам этого объекта и проверяем, что
+        // текущее свойство равно полученной вершине from и что массив вершин по этому ключу содержит вершину to
+        Object.keys(vertex).forEach((key) => {
+          if (key === from && vertex[key].includes(to)) {
+            // В таком случае мы нашли цикл, и нам не надо обрабатывать эти вершины отдельно, так как они уже
+            // построены, а мы лишь встретили очередное ребро
+            isCycle = true;
+          }
+        });
+      });
+    });
+    return isCycle;
+  };*/
+
+  #checkIsCycle = (levels, from, to) => {
+    let isCycle = false;
+    Object.values(levels).forEach((level) => {
+      // Для каждого уровня нам необходимо просмотреть массив объектов этого уровня
+      level.forEach((vertex) => {
+        // Для каждого элемента массива - это объект итерируемся по свойствам этого объекта и проверяем, что
+        // текущее свойство равно полученной вершине from и что массив вершин по этому ключу содержит вершину to
+        Object.keys(vertex).forEach((key) => {
+          if (key === from && vertex[key].includes(to)) {
+            // В таком случае мы нашли цикл, и нам не надо обрабатывать эти вершины отдельно, так как они уже
+            // построены, а мы лишь встретили очередное ребро
+            isCycle = true;
+          }
+        });
+      });
+    });
+    return isCycle;
   };
 
   /**
@@ -1945,6 +1980,35 @@ class Graph {
     return id;
   };
 
+  /**
+   * Приватная функция-член, для парсинга параллелизма
+   *
+   * @param lines - массив строк файла в формате aDOT
+   */
+  #parseParallelism = (lines) => {
+    let idx = 0;
+    while (
+      lines[idx].indexOf("parallelism") === -1 &&
+      idx !== lines.length - 1
+    ) {
+      ++idx;
+    }
+    while (lines[idx].indexOf("parallelism") !== -1) {
+      const parts = lines[idx].split(" ");
+      const label = parts[0].trim();
+      const parallelismMethod = parts[1].substring(
+        parts[1].indexOf("=") + 1,
+        parts[1].indexOf("]")
+      );
+      for (const vertex in this.vertices) {
+        if (this.vertices[vertex]["metadata"]["label"] === label) {
+          this.vertices[vertex]["parallelism"] = parallelismMethod;
+        }
+      }
+      ++idx;
+    }
+  };
+
   #shortestPath(lines, from, to, indexes) {
     if (indexes.length >= lines.length * 2) {
       return;
@@ -1997,6 +2061,8 @@ class Graph {
 let graph = new Graph();
 let actionsDisabled = false;
 
+let lastButtonSelected;
+
 const setVertexHandler = (event) => {
   const rect = svgCanvas.getBoundingClientRect();
   const centerX = event.clientX - rect.left;
@@ -2012,6 +2078,9 @@ const setVertexesHandler = () => {
     svgCanvas.removeEventListener("click", deleteEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
+    DOMChangeColor(SetVertexButton, "#cccccc");
+    lastButtonSelected = SetVertexButton;
     setInformationConsoleMessage(
       `Вы выбрали 'Добавить вершину', кликните на холст, чтобы добавить вершину`
     );
@@ -2035,6 +2104,9 @@ const deleteVertexesHandler = () => {
     svgCanvas.removeEventListener("click", deleteEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
+    DOMChangeColor(DeleteVertexButton, "#cccccc");
+    lastButtonSelected = DeleteVertexButton;
     setInformationConsoleMessage(
       `Вы выбрали 'Удалить вершину', кликните на вершину, чтобы ее удалить`
     );
@@ -2051,6 +2123,7 @@ const setEdgeHandler = (event) => {
     if (id1 === "") {
       // Select first vertex
       id1 = event.target.getAttribute("id");
+      CanvasChangeBorderColor([id1], "#B92808");
       setInformationConsoleMessage(`Выберите вторую вершину`);
       actionsDisabled = true;
     } else {
@@ -2060,6 +2133,7 @@ const setEdgeHandler = (event) => {
         id1 = id2 = "";
         svgCanvas.removeEventListener("click", setEdgeHandler);
       } else {
+        actionsDisabled = false;
         id1 = id2 = "";
       }
     }
@@ -2072,6 +2146,9 @@ const setEdgesHandler = () => {
     svgCanvas.removeEventListener("click", deleteEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
+    DOMChangeColor(SetEdgeButton, "#cccccc");
+    lastButtonSelected = SetEdgeButton;
     setInformationConsoleMessage(
       `Вы выбрали 'Добавить ребро', выберите первую вершину`
     );
@@ -2094,6 +2171,9 @@ const deleteEdgesHandler = () => {
     svgCanvas.removeEventListener("click", setEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
+    DOMChangeColor(DeleteEdgeButton, "#cccccc");
+    lastButtonSelected = DeleteEdgeButton;
     setInformationConsoleMessage(
       `Вы выбрали 'Удалить ребро', кликните на ребро, чтобы его удалить`
     );
@@ -2109,6 +2189,7 @@ const determineStartAndEndVertices = (event) => {
   if (event.target.closest(".vertex")) {
     if (startVertex === undefined) {
       startVertex = event.target.getAttribute("id");
+      CanvasChangeBorderColor([startVertex], "#B92808");
       setInformationConsoleMessage("Выберите конечную вершину кликну на нее");
       actionsDisabled = true;
     } else {
@@ -2133,6 +2214,9 @@ const exportHandler = () => {
     svgCanvas.removeEventListener("click", deleteEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
+    DOMChangeColor(ExportADOTButton, "#cccccc");
+    lastButtonSelected = ExportADOTButton;
     setInformationConsoleMessage("Выберите стартовую вершину кликнув на нее");
     svgCanvas.addEventListener("click", determineStartAndEndVertices);
   }
@@ -2147,6 +2231,7 @@ const fileToText = (file, callback) => {
   };
 };
 const UploadHandler = () => {
+  DOMChangeColor(lastButtonSelected);
   const file = ImportADOTButton.files.item(0);
   if (file) {
     fileToText(file, (text) => {
@@ -2164,10 +2249,25 @@ const ClearCanvasHandler = () => {
     svgCanvas.removeEventListener("click", deleteEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
     graph.Clear();
   }
 };
 ClearCanvasButton.addEventListener("click", ClearCanvasHandler);
+
+const FindCyclesHandler = () => {
+  if (!actionsDisabled) {
+    svgCanvas.removeEventListener("click", setVertexHandler);
+    svgCanvas.removeEventListener("click", deleteVertexHandler);
+    svgCanvas.removeEventListener("click", setEdgeHandler);
+    svgCanvas.removeEventListener("click", deleteEdgeHandler);
+    svgCanvas.removeEventListener("click", determineStartAndEndVertices);
+
+    DOMChangeColor(lastButtonSelected);
+    graph.FindCycles();
+  }
+};
+FindCyclesButton.addEventListener("click", FindCyclesHandler);
 
 /**
  * Функция для создания вершины на холсте
@@ -2282,7 +2382,7 @@ const CanvasCreateStraightEdge = (
   // Создаем тег <path> и определяем у него необходимые свойства
   svg
     .append("path")
-    .style("stroke", "black")
+    .attr("stroke", "black")
     .attr("d", path)
     .attr("id", id)
     .attr("class", "edge");
@@ -2441,8 +2541,8 @@ const CanvasCreateBezierEdge = (
     // Добавляем тег <path> и определяем необходимые свойства
     svg
       .append("path")
-      .style("stroke", "black")
-      .style("fill", "transparent")
+      .attr("stroke", "black")
+      .attr("fill", "transparent")
       .attr("d", path)
       .attr("id", id)
       .attr("class", "edge");
@@ -2456,8 +2556,8 @@ const CanvasCreateBezierEdge = (
     // Добавляем тег <path> и определяем необходимые свойства
     svg
       .append("path")
-      .style("stroke", "black")
-      .style("fill", "transparent")
+      .attr("stroke", "black")
+      .attr("fill", "transparent")
       .attr("d", path)
       .attr("id", id)
       .attr("class", "edge");
@@ -2761,4 +2861,18 @@ const clearRightSidebar = (rightSidebarBlock) => {
  */
 const CanvasClearAll = () => {
   d3.select("svg").selectAll("*").remove(); // у тега <svg> выбираем всех его детей и удаляем
+};
+
+const DOMChangeColor = (element, color) => {
+  if (element) {
+    element.style.backgroundColor = color || null;
+  }
+};
+
+const CanvasChangeBorderColor = (elementsID, color) => {
+  elementsID.forEach((elementID) => {
+    let element = svgCanvas.getElementById(elementID);
+    console.log(element);
+    element.setAttribute("stroke", color);
+  });
 };
