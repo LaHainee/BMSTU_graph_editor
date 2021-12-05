@@ -1371,32 +1371,6 @@ class Graph {
         if (this.#checkIsCycle(levels, from, to)) {
           continue;
         }
-        /*let isCycle = false; // флаг
-        // Итерируемся по объекту levels
-        Object.values(levels).forEach((level) => {
-          // Для каждого уровня нам необходимо просмотреть массив объектов этого уровня
-          level.forEach((vertex) => {
-            // Для каждого элемента массива - это объект итерируемся по свойствам этого объекта и проверяем, что
-            // текущее свойство равно полученной вершине from и что массив вершин по этому ключу содержит вершину to
-            Object.keys(vertex).forEach((key) => {
-              if (key === from && vertex[key].includes(to)) {
-                // В таком случае мы нашли цикл, и нам не надо обрабатывать эти вершины отдельно, так как они уже
-                // построены, а мы лишь встретили очередное ребро
-                isCycle = true;
-              }
-            });
-          });
-        });
-        if (isCycle) {
-          continue;
-        }*/
-
-        /*this.#shortestPath(lines, "s1", to, "");
-        this.#shortestPathIncludesVertex(lines, "s1", to, i.toString(), "");
-        graph.pathShortest = "";
-        graph.pathIncludesVertex = "";
-        graph.pathShortestLength = 10000;
-        graph.pathIncludesVertexLength = 10000;*/
 
         // Если у объекта levels отсутствует свойство fromVertexLevel + 1, то добавляем это свойство и пустой массив
         // как значение этого свойства
@@ -1437,6 +1411,7 @@ class Graph {
     console.log("None visibility:", verticesWithNoneVisibility);
 
     console.log(JSON.stringify(levels));
+    console.log(levels);
 
     // Находим уровень на котором расположено больше всего вершин, с него мы начинаем строить граф, влево и вправо
     let highest = []; // массив для хранения вершин самого "высокого" уровня
@@ -1501,6 +1476,8 @@ class Graph {
             });
           });
 
+          console.log("BUILDING LEFT:", to);
+
           // Логика: найти координату Y самой верхней (минимум) связанной вершины, найти координату Y самой нижней
           // (максимум) связанной вершины
           let firstY = 10000, // инициализируем переменные для хранения минимума и максимума
@@ -1535,6 +1512,51 @@ class Graph {
       }
       --leftLevel; // декрементируем уровень - спускаемся на уровень ниже
     }
+
+    /*let leftLevel = parseInt(highestLevel) - 1;
+    let cxLeft = cx;
+    while (leftLevel > 0) {
+      cxLeft -= horizontalOffset;
+
+      let minY = 10000;
+      let maxY = 0;
+
+      levels[leftLevel].forEach((element) => {
+        Object.keys(element).forEach((vertex) => {
+          this.#getAdjacencyVertices(levels, vertex).forEach((v) => {
+            const y = parseInt(positions[v]["y"]);
+
+            if (y > maxY) {
+              maxY = y;
+            }
+            if (y < minY) {
+              minY = y;
+            }
+          });
+        });
+      });
+
+      const offset = (maxY - minY) / (levels[leftLevel].length - 1);
+
+      console.log("minY:", minY, "maxY:", maxY, "offset:", offset);
+
+      cy = minY;
+
+      levels[leftLevel].forEach((element) => {
+        Object.keys(element).forEach((vertex) => {
+          if (!verticesWithNoneVisibility[leftLevel].includes(vertex)) {
+            this.#addVertexFromADOT(cxLeft, cy, vertex);
+          }
+          positions[vertex] = {
+            x: cxLeft,
+            y: cy,
+          };
+        });
+        cy += offset;
+      });
+
+      --leftLevel;
+    }*/
 
     // Аналогичная логика и для построения вершин, которые располагаются справа от самого большого уровня
     let rightLevel = parseInt(highestLevel) + 1;
@@ -1578,24 +1600,23 @@ class Graph {
     }
   };
 
-  /*#checkIsCycle = (levels, from, to) => {
-    let isCycle = false;
-    Object.values(levels).forEach((level) => {
-      // Для каждого уровня нам необходимо просмотреть массив объектов этого уровня
-      level.forEach((vertex) => {
-        // Для каждого элемента массива - это объект итерируемся по свойствам этого объекта и проверяем, что
-        // текущее свойство равно полученной вершине from и что массив вершин по этому ключу содержит вершину to
-        Object.keys(vertex).forEach((key) => {
-          if (key === from && vertex[key].includes(to)) {
-            // В таком случае мы нашли цикл, и нам не надо обрабатывать эти вершины отдельно, так как они уже
-            // построены, а мы лишь встретили очередное ребро
-            isCycle = true;
-          }
+  #getAdjacencyVertices = (levels, value) => {
+    let adjacency = [];
+
+    Object.keys(levels).forEach((level) => {
+      levels[level].forEach((element) => {
+        Object.keys(element).forEach((vertex) => {
+          element[vertex].forEach((connectedVertex) => {
+            if (connectedVertex === value) {
+              adjacency.push(vertex);
+            }
+          });
         });
       });
     });
-    return isCycle;
-  };*/
+
+    return adjacency;
+  };
 
   #checkIsCycle = (levels, from, to) => {
     let isCycle = false;
@@ -1615,6 +1636,34 @@ class Graph {
     });
     return isCycle;
   };
+
+  /*#checkIsCycle = (levels, from, to) => {
+    let isCycle = false;
+    Object.keys(levels).forEach((level) => {
+      // Для каждого уровня нам необходимо просмотреть массив объектов этого уровня
+      levels[level].forEach((vertex) => {
+        // Для каждого элемента массива - это объект итерируемся по свойствам этого объекта и проверяем, что
+        // текущее свойство равно полученной вершине from и что массив вершин по этому ключу содержит вершину to
+        Object.keys(vertex).forEach((key) => {
+          if (key === from) {
+            for (const l in levels) {
+              if (l === level) {
+                break;
+              }
+              levels[l].forEach((e) => {
+                Object.keys(e).forEach((v) => {
+                  if (v === to) {
+                    isCycle = true;
+                  }
+                });
+              });
+            }
+          }
+        });
+      });
+    });
+    return isCycle;
+  };*/
 
   /**
    * Приватная функция-член, которая реализует проверку корректности объекта levels. После заполнения объекта levels может
