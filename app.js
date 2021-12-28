@@ -81,10 +81,11 @@ class Graph {
     this.arrowheadSize = 10; // Величина, которая характеризует размер стрелки, 10 - по умолчанию, чем больше величина
     // тем больше размер стрелки
 
-    this.pathShortest = [];
-    this.pathIncludesVertex = [];
     this.pathShortestLength = 10000;
     this.pathIncludesVertexLength = 10000;
+
+    this.cycle_st = "";
+    this.cycle_end = "";
   }
 
   /**
@@ -732,7 +733,72 @@ class Graph {
     setInformationConsoleMessage("Холст успешно очищен");
   };
 
-  FindCycles() {}
+  #foundCycle = (adjacencyList, vertex, visited, parents) => {
+    console.log(`Vertex ${vertex}`);
+    visited[vertex] = 1;
+    for (let to of adjacencyList[vertex]) {
+      if (visited[to] === 0) {
+        parents[to] = vertex;
+        if (this.#foundCycle(adjacencyList, to, visited, parents)) {
+          return true;
+        }
+      } else if (visited[to] === 1) {
+        this.cycle_st = to;
+        this.cycle_end = vertex;
+        return true;
+      }
+    }
+    visited[vertex] = 2;
+    return false;
+  };
+
+  FindCycles = () => {
+    const adjacencyList = this.#getAdjacencyList();
+
+    console.log("AdjacencyList:", adjacencyList);
+
+    for (const vertex in adjacencyList) {
+      console.log(`Vertex: ${vertex}`);
+      let parents = {};
+      let visited = {};
+      for (const v in adjacencyList) {
+        visited[v] = 0;
+      }
+
+      if (this.#foundCycle(adjacencyList, vertex, visited, parents)) {
+        let cycle = [];
+        cycle.push(this.cycle_st);
+        for (let v = this.cycle_end; v !== this.cycle_st; v = parents[v]) {
+          cycle.push(v);
+        }
+        cycle.push(this.cycle_st);
+        cycle = cycle.reverse();
+        console.log(cycle);
+
+        this.cycle_st = "";
+        this.cycle_end = "";
+
+        CanvasChangeBorderColor(cycle, "red");
+      }
+    }
+  };
+
+  #getAdjacencyList = () => {
+    let adjacencyList = {};
+
+    Object.keys(this.vertices).forEach((vertex) => {
+      this.vertices[vertex]["edges"].forEach((edge) => {
+        if (edge["direction"] === "from") {
+          if (!adjacencyList.hasOwnProperty(vertex)) {
+            adjacencyList[vertex] = [];
+          }
+          adjacencyList[vertex].push(edge["value"]);
+        }
+      });
+    });
+
+    return adjacencyList;
+  };
 
   /**
    * Приватная функция-член класс, которая проверяет позицию вершины. Для этого мы итерируемся по массиву
@@ -811,7 +877,6 @@ class Graph {
    * @param edge - Удаляемое ребро
    */
   #deleteEdgeFromConnectedVertices = (firstVertexID, secondVertexID, edge) => {
-    console.log("Delete:", firstVertexID, secondVertexID, edge);
     // Если предикат используется только для переданного ребра, то удаляем информацию о нем из объекта predicates
     if (this.#isLastUsedEdgePredicate(edge["predicate"])) {
       delete this.predicates[edge["predicate"]];
@@ -1395,6 +1460,20 @@ class Graph {
         // Если на предыдущем шаге не встретили такую вершину, то просто по ключу fromVertexLevel + 1 добавляем
         // новый элемент в массив, элемент представляет из себя объект с ключом to, и массивом по значению, массив
         // содержит один элемент - это вершина from
+        let toVertexLevel = undefined;
+        levelLoop: for (const level in levels) {
+          for (const vertex of levels[level]) {
+            if (vertex.hasOwnProperty(to)) {
+              toVertexLevel = level;
+              break levelLoop;
+            }
+          }
+        }
+
+        if (toVertexLevel < fromVertexLevel) {
+          continue;
+        }
+
         if (!flag && !levels[fromVertexLevel + 1].hasOwnProperty(to)) {
           levels[fromVertexLevel + 1].push({ [to]: [from] });
         }
@@ -1408,10 +1487,8 @@ class Graph {
     ); // получили объект, который содержит информацию
     // о вершинах которые не надо отрисовывать
 
-    console.log("None visibility:", verticesWithNoneVisibility);
-
-    console.log(JSON.stringify(levels));
-    console.log(levels);
+    console.log("Levels:", levels);
+    console.log("None visibility", verticesWithNoneVisibility);
 
     // Находим уровень на котором расположено больше всего вершин, с него мы начинаем строить граф, влево и вправо
     let highest = []; // массив для хранения вершин самого "высокого" уровня
@@ -1476,8 +1553,6 @@ class Graph {
             });
           });
 
-          console.log("BUILDING LEFT:", to);
-
           // Логика: найти координату Y самой верхней (минимум) связанной вершины, найти координату Y самой нижней
           // (максимум) связанной вершины
           let firstY = 10000, // инициализируем переменные для хранения минимума и максимума
@@ -1512,51 +1587,6 @@ class Graph {
       }
       --leftLevel; // декрементируем уровень - спускаемся на уровень ниже
     }
-
-    /*let leftLevel = parseInt(highestLevel) - 1;
-    let cxLeft = cx;
-    while (leftLevel > 0) {
-      cxLeft -= horizontalOffset;
-
-      let minY = 10000;
-      let maxY = 0;
-
-      levels[leftLevel].forEach((element) => {
-        Object.keys(element).forEach((vertex) => {
-          this.#getAdjacencyVertices(levels, vertex).forEach((v) => {
-            const y = parseInt(positions[v]["y"]);
-
-            if (y > maxY) {
-              maxY = y;
-            }
-            if (y < minY) {
-              minY = y;
-            }
-          });
-        });
-      });
-
-      const offset = (maxY - minY) / (levels[leftLevel].length - 1);
-
-      console.log("minY:", minY, "maxY:", maxY, "offset:", offset);
-
-      cy = minY;
-
-      levels[leftLevel].forEach((element) => {
-        Object.keys(element).forEach((vertex) => {
-          if (!verticesWithNoneVisibility[leftLevel].includes(vertex)) {
-            this.#addVertexFromADOT(cxLeft, cy, vertex);
-          }
-          positions[vertex] = {
-            x: cxLeft,
-            y: cy,
-          };
-        });
-        cy += offset;
-      });
-
-      --leftLevel;
-    }*/
 
     // Аналогичная логика и для построения вершин, которые располагаются справа от самого большого уровня
     let rightLevel = parseInt(highestLevel) + 1;
@@ -1600,24 +1630,6 @@ class Graph {
     }
   };
 
-  #getAdjacencyVertices = (levels, value) => {
-    let adjacency = [];
-
-    Object.keys(levels).forEach((level) => {
-      levels[level].forEach((element) => {
-        Object.keys(element).forEach((vertex) => {
-          element[vertex].forEach((connectedVertex) => {
-            if (connectedVertex === value) {
-              adjacency.push(vertex);
-            }
-          });
-        });
-      });
-    });
-
-    return adjacency;
-  };
-
   #checkIsCycle = (levels, from, to) => {
     let isCycle = false;
     Object.values(levels).forEach((level) => {
@@ -1636,34 +1648,6 @@ class Graph {
     });
     return isCycle;
   };
-
-  /*#checkIsCycle = (levels, from, to) => {
-    let isCycle = false;
-    Object.keys(levels).forEach((level) => {
-      // Для каждого уровня нам необходимо просмотреть массив объектов этого уровня
-      levels[level].forEach((vertex) => {
-        // Для каждого элемента массива - это объект итерируемся по свойствам этого объекта и проверяем, что
-        // текущее свойство равно полученной вершине from и что массив вершин по этому ключу содержит вершину to
-        Object.keys(vertex).forEach((key) => {
-          if (key === from) {
-            for (const l in levels) {
-              if (l === level) {
-                break;
-              }
-              levels[l].forEach((e) => {
-                Object.keys(e).forEach((v) => {
-                  if (v === to) {
-                    isCycle = true;
-                  }
-                });
-              });
-            }
-          }
-        });
-      });
-    });
-    return isCycle;
-  };*/
 
   /**
    * Приватная функция-член, которая реализует проверку корректности объекта levels. После заполнения объекта levels может
@@ -1705,8 +1689,6 @@ class Graph {
         for (const elements of levels[level]) {
           for (const v in elements) {
             if (v === vertex) {
-              console.log("Found vertex in incorrect level, vertex:", v);
-
               for (const e of levels[vertexLastLevel]) {
                 if (e.hasOwnProperty(v)) {
                   e[v] = e[v].concat(elements[v]);
@@ -1891,7 +1873,6 @@ class Graph {
 
       // Если вершина в которую приходит ребро находится левее чем вершина из которой выходит ребро, то вероятно это
       // цикл и стоит отложить отрисовку этих ребер, поэтому мы сохраняем их в отдельный массив
-      console.log("toX", toX, "fromX", fromX);
       if (toX < fromX) {
         skippedLines.push(line);
       } else {
@@ -2921,7 +2902,6 @@ const DOMChangeColor = (element, color) => {
 const CanvasChangeBorderColor = (elementsID, color) => {
   elementsID.forEach((elementID) => {
     let element = svgCanvas.getElementById(elementID);
-    console.log(element);
     element.setAttribute("stroke", color);
   });
 };
