@@ -35,17 +35,16 @@ const svg = d3
   .attr("height", svgCanvasHeight)
   .attr("class", "svg-container");
 
-//TODO исправить стрелки
-
 //------Все объекты, которые используются на странице
 const svgCanvas = document.getElementsByClassName("svg-container")[0]; // Холст
 const SetEdgeButton = document.getElementById("set_edge_button"); // Кнопка "Добавить ребро"
 const SetVertexButton = document.getElementById("set_vertex_button"); // Кнопка "Добавить вершину"
 const DeleteVertexButton = document.getElementById("remove_vertex_button"); // Кнопка "Удалить вершину"
 const DeleteEdgeButton = document.getElementById("remove_edge_button"); // Кнопка "Удалить ребро"
-const ClearCanvasButton = document.getElementById("clear_canvas"); // Кнопка "Очистить холст"
-const ExportADOTButton = document.getElementById("export_adot"); // Кнопка "Экспортировать в формат aDOT"
+const ClearCanvasButton = document.getElementById("clear_canvas_button"); // Кнопка "Очистить холст"
+const ExportADOTButton = document.getElementById("export_adot_button"); // Кнопка "Экспортировать в формат aDOT"
 const ImportADOTButton = document.getElementById("input_adot"); // Кнопка "Импортировать из формата aDOT"
+const FindCyclesButton = document.getElementById("find_cycles_button"); // Кнопка найти циклы
 const RightSidebarBlock = document.getElementsByClassName(
   "right-sidebar-block"
 )[0]; // Объект блока правого сайдбара, необходим для того, чтобы скрывать или показывать пользователю поля ввода в
@@ -65,10 +64,6 @@ class Graph {
   constructor() {
     this.vertices = {}; // Объект для хранения всей информации о вершинах (позиция на холсте, метка вершину, ребра
     // входящие и выходящие из вершины и т.д.)
-    this.vertexID = 0; // ID вершины, после построения вершины - инкрементируеться, необходим для задания уникального
-    // ID для построенной вершины
-    this.edgeID = 0; // ID ребра, после построения ребра - инкрементируеться, необходим для задания уникального
-    // ID для построенного ребра
     this.createdVerticesPositions = []; // Массив, который хранит информацию о позициях построенных вершин,
     // необходим для того, чтобы не допускать построение вершин в непосредственной близости или друг на друге
     this.createdVerticesLabels = new Set(); // Коллекция уникальных значений, необходима для сохранения меток
@@ -76,9 +71,13 @@ class Graph {
     this.predicates = {}; // Объект для хранения информации о предикатах в графе (aDOT)
     this.functions = {}; // Объект для хранения информации о функциях в графе (aDOT)
     this.edges = {}; // Объект для хранения информации об edge (aDOT)
+    this.vertexID = 0; // ID вершины, после построения вершины - инкрементируеться, необходим для задания уникального
+    // ID для построенной вершины
+    this.edgeID = 0; // ID ребра, после построения ребра - инкрементируеться, необходим для задания уникального
+    // ID для построенного ребра
 
     this.radius = 30; // Радиус вершины, 30px - по умолчанию
-    this.borderWidth = 5; // Толщина границы вершины, 5px - по умолчанию
+    this.borderWidth = 1; // Толщина границы вершины, 2px - по умолчанию
     this.arrowheadSize = 10; // Величина, которая характеризует размер стрелки, 10 - по умолчанию, чем больше величина
     // тем больше размер стрелки
   }
@@ -113,6 +112,7 @@ class Graph {
       this.radius,
       this.borderWidth
     );
+    CanvasChangeBorderColor([id], "#B92808");
 
     // Сохраняем позицию созданной вершины в массиве createdVerticesPositions (для чего он нужен описано в
     // комментариях в конструкторе класса)
@@ -189,6 +189,8 @@ class Graph {
           },
         };
 
+        CanvasChangeBorderColor([id], "#000000");
+        DOMChangeColor(lastButtonSelected);
         setInformationConsoleMessage(
           `Вы успешно добавили метку для вершины. Выберите действие`
         );
@@ -256,6 +258,9 @@ class Graph {
 
     // Из объекта vertices, который хранит все вершины графа удаляем вершину
     delete this.vertices[vertexID];
+
+    DOMChangeColor(lastButtonSelected);
+    setInformationConsoleMessage("Вершина успешно удалена");
   }
 
   /**
@@ -298,6 +303,9 @@ class Graph {
           this.#checkParallelismProperty(fistVertexID);
           // Проверяем свойство 'parallelism' у второй  вершины
           this.#checkParallelismProperty(secondVertexID);
+
+          DOMChangeColor(lastButtonSelected);
+          setInformationConsoleMessage("Вы успешно удалили ребро");
         }
       });
     });
@@ -311,6 +319,7 @@ class Graph {
    * @returns {boolean} - true - успешно построили ребро, false - произошла ошибка
    */
   AddEdge(fromVertexID, toVertexID) {
+    CanvasChangeBorderColor([fromVertexID, toVertexID], "#000000");
     // Проверка, что пользователь не пытается построить ребро из вершины в нее же саму
     if (fromVertexID === toVertexID) {
       setInformationConsoleMessage(
@@ -347,7 +356,8 @@ class Graph {
         toVertexPositionY,
         this.radius,
         id,
-        this.arrowheadSize
+        this.arrowheadSize,
+        this.borderWidth
       );
       edgeType = "straight"; // Тип построения ребра - прямое
     } else {
@@ -361,10 +371,12 @@ class Graph {
         this.radius,
         id,
         this.arrowheadSize,
+        this.borderWidth,
         amount * 3
       );
       edgeType = "bezier"; // Тип построения ребра - кривая Безье
     }
+    CanvasChangeBorderColor([id], "#B92808");
 
     // true - из вершины выходит более 1 ребра, следовательно необходимо уточнение параллелизма, если этого свойства
     // не было ранее
@@ -450,9 +462,12 @@ class Graph {
             actionsDisabled = false;
             // Скрываем видимость блока правого сайдбара
             RightSidebarBlock.style.display = "none";
+
             // Показываем пользователю информационное сообщение в консоли (нижний сайдбар)
+            DOMChangeColor(lastButtonSelected);
+            CanvasChangeBorderColor([id], "#000000");
             setInformationConsoleMessage(
-              `Вы успешно добавили метку для ребра. Выберите действие`
+              `Вы успешно добавили метку для ребра.`
             );
           } else {
             // Если необходимо уточнение информации о предикате
@@ -621,6 +636,9 @@ class Graph {
           // Скрываем видимость блока правого сайдбара
           RightSidebarBlock.style.display = "none";
           // Показываем пользователю информационное сообщение в консоли (нижний сайдбар)
+
+          DOMChangeColor(lastButtonSelected);
+          CanvasChangeBorderColor([id], "#000000");
           setInformationConsoleMessage(
             `Вы успешно добавили метаинформацию для ребра. Выберите действие`
           );
@@ -643,6 +661,7 @@ class Graph {
    * @returns {boolean} - true - экспорт завершен успешно
    */
   ExportADOT(startVertexID, endVertexID) {
+    CanvasChangeBorderColor([startVertexID, endVertexID], "#000000");
     // Получаем текстовое описание графа в формате aDOT
     const text = this.#parseToADOT(startVertexID, endVertexID);
 
@@ -661,6 +680,7 @@ class Graph {
         window.URL.revokeObjectURL(url);
       }, 0);
 
+      DOMChangeColor(lastButtonSelected);
       // Экспорт завершен успешно
       return true;
     }
@@ -685,182 +705,18 @@ class Graph {
     // описание графовой модели
 
     this.#renderVertices(idx, lines); // Визуализация вершин графа (самый интересный алгоритм в проекте=) )
-    this.renderEdges(idx, lines);
-    this.parseParallelism(lines);
-    this.edges = {};
-  }
+    this.#renderEdges(idx, lines);
+    this.#parseParallelism(lines);
 
-  parseParallelism(lines) {
-    let idx = 0;
-    while (
-      lines[idx].indexOf("parallelism") === -1 &&
-      idx !== lines.length - 1
-    ) {
-      ++idx;
-    }
-    while (lines[idx].indexOf("parallelism") !== -1) {
-      const parts = lines[idx].split(" ");
-      const label = parts[0].trim();
-      const parallelismMethod = parts[1].substring(
-        parts[1].indexOf("=") + 1,
-        parts[1].indexOf("]")
-      );
-      for (const vertex in this.vertices) {
-        if (this.vertices[vertex]["metadata"]["label"] === label) {
-          this.vertices[vertex]["parallelism"] = parallelismMethod;
-        }
-      }
-      ++idx;
-    }
-  }
-
-  renderEdges(idx, lines) {
-    while (lines[idx].indexOf("->") === -1 && lines[idx].indexOf("=>") === -1) {
-      ++idx;
-    }
-    const startIndex = idx;
-    while (lines[idx].indexOf("->") !== -1 || lines[idx].indexOf("=>") !== -1) {
-      ++idx;
-    }
-    const endIndex = idx;
-    lines = lines.slice(startIndex, endIndex);
-    let skippedLines = [];
-    for (const line of lines) {
-      if (line.indexOf("__BEGIN__") !== -1 || line.indexOf("__END__") !== -1) {
-        continue;
-      }
-      const parts = line.split(" ");
-      const from = parts[0].trim();
-      const to = parts[2].trim();
-      const edge = parts[3].trim();
-      let fromX = 0,
-        toX = 0;
-      Object.values(this.vertices).forEach((vertex) => {
-        if (vertex["metadata"]["label"] === from) {
-          fromX = parseInt(vertex["metadata"]["position"]["x"]);
-        }
-        if (vertex["metadata"]["label"] === to) {
-          toX = parseInt(vertex["metadata"]["position"]["x"]);
-        }
-      });
-      if (toX < fromX) skippedLines.push(line);
-      else this.addEdgeFromADOT(from, to, edge);
-    }
-    for (const line of skippedLines) {
-      const parts = line.split(" ");
-      const from = parts[0].trim();
-      const to = parts[2].trim();
-      const edge = parts[3].trim();
-      let fromX = 0,
-        toX = 0;
-      Object.values(this.vertices).forEach((vertex) => {
-        if (vertex["metadata"]["label"] === from) {
-          fromX = parseInt(vertex["metadata"]["position"]["x"]);
-        }
-        if (vertex["metadata"]["label"] === to) {
-          toX = parseInt(vertex["metadata"]["position"]["x"]);
-        }
-      });
-      this.addEdgeFromADOT(from, to, edge);
-    }
-  }
-
-  addEdgeFromADOT(from, to, edge) {
-    let vertex1, vertex2;
-    for (const vertex in this.vertices) {
-      if (this.vertices[vertex]["metadata"]["label"] === from) {
-        vertex1 = vertex;
-      }
-      if (this.vertices[vertex]["metadata"]["label"] === to) {
-        vertex2 = vertex;
-      }
-    }
-    if (vertex1 === vertex2) {
-      setInformationConsoleMessage(
-        "Синтаксическая ошибка. Вы не можете построить из вершины ребро в нее саму"
-      );
-      return false;
-    }
-    //TODO исправить
-    const amount = this.#countEdgesAmount(vertex1, vertex2);
-
-    const x1 = this.vertices[vertex1]["metadata"]["position"]["x"];
-    const y1 = this.vertices[vertex1]["metadata"]["position"]["y"];
-    const x2 = this.vertices[vertex2]["metadata"]["position"]["x"];
-    const y2 = this.vertices[vertex2]["metadata"]["position"]["y"];
-
-    const id = "edge" + ++this.edgeID;
-    let path;
-    if (amount === 0) {
-      path = CanvasCreateStraightEdge(
-        x1,
-        y1,
-        x2,
-        y2,
-        this.radius,
-        id,
-        this.arrowheadSize
-      );
-    } else {
-      path = CanvasCreateBezierEdge(
-        x1,
-        y1,
-        x2,
-        y2,
-        this.radius,
-        id,
-        this.arrowheadSize,
-        amount * 3
-      );
-      this.vertices[vertex1]["cycle"] = true;
-    }
-    const e = edge.substring(edge.indexOf("=") + 1, edge.indexOf("]"));
-    let predicate, func;
-    for (const currentEdge in this.edges) {
-      if (currentEdge === e) {
-        predicate = this.edges[currentEdge]["predicate"];
-        func = this.edges[currentEdge]["function"];
-      }
-    }
-    const label = `<${predicate}, ${func}>`;
-    const pathID = "edge" + this.edgeID + "_path";
-    const labelID = "edge" + this.edgeID + "_label";
-    CanvasCreateTextByPath(path, label, pathID, labelID, 50, -10);
-
-    this.vertices[vertex1]["edges"].push(
-      // Для первой вершины
-      {
-        value: vertex2,
-        direction: "from",
-        label: label,
-        predicate: predicate,
-        function: func,
-        metadata: {
-          edgeID: id,
-          pathID: pathID,
-          labelID: labelID,
-        },
-      }
+    setInformationConsoleMessage(
+      "Граф успешно импортирован. Выберите действие"
     );
-    this.vertices[vertex2]["edges"].push({
-      value: vertex1,
-      direction: "to",
-      label: label,
-      predicate: predicate,
-      function: func,
-      metadata: {
-        edgeID: id,
-        pathID: pathID,
-        labelID: labelID,
-      },
-    });
   }
 
   /**
    * Публичная функция-член реализующая полную очистку экрана
-   *
    */
-  Clear() {
+  Clear = () => {
     this.vertices = {}; // Очищаем объект vertices
     this.vertexID = 0; // ID вершин будут начинаться с 1
     this.edgeID = 0; // ID ребер будет начинаться с 1
@@ -871,7 +727,139 @@ class Graph {
     this.edges = {}; // Очищаем объект edges
     CanvasClearAll(); // Очищаем сам холст
     setInformationConsoleMessage("Холст успешно очищен");
-  }
+  };
+
+  FindCycles = () => {
+    const adjacencyList = this.#getAdjacencyList();
+
+    let visited = {};
+    for (const vertex in adjacencyList) {
+      visited[vertex] = "NOT_VISITED";
+    }
+
+    for (const vertex in adjacencyList) {
+      if (visited[vertex] === "NOT_VISITED") {
+        let stack = [];
+        stack.push(vertex);
+        visited[vertex] = "IN_STACK";
+        this.#processDFSTree(adjacencyList, stack, visited);
+      }
+    }
+  };
+
+  #processDFSTree = (adjacencyList, stack, visited) => {
+    for (const vertex of adjacencyList[stack[stack.length - 1]]) {
+      if (visited[vertex] === "IN_STACK") {
+        const cyclePath = this.#getCyclePath(stack, vertex);
+        this.#colorCycle(cyclePath);
+      } else if (visited[vertex] === "NOT_VISITED") {
+        stack.push(vertex);
+        visited[vertex] = "IN_STACK";
+        this.#processDFSTree(adjacencyList, stack, visited);
+      }
+    }
+    visited[stack[stack.length - 1]] = "DONE";
+    stack.pop();
+  };
+
+  #getCyclePath = (stack, vertex) => {
+    let cyclePath = [];
+
+    let tempStack = [];
+    tempStack.push(stack[stack.length - 1]);
+    stack.pop();
+    while (tempStack[tempStack.length - 1] !== vertex) {
+      tempStack.push(stack[stack.length - 1]);
+      stack.pop();
+    }
+    while (tempStack.length > 0) {
+      cyclePath.push(tempStack[tempStack.length - 1]);
+      stack.push(tempStack[tempStack.length - 1]);
+      tempStack.pop();
+    }
+
+    return cyclePath;
+  };
+
+  #colorCycle = (path) => {
+    let pathEdges = [];
+    for (let i = 0; i < path.length - 1; i++) {
+      // path[i] - вершина в пути цикла
+      for (const edge of this.vertices[path[i]]["edges"]) {
+        if (edge["direction"] === "from" && edge["value"] === path[i + 1]) {
+          pathEdges.push(edge["metadata"]["edgeID"]);
+        }
+      }
+    }
+    for (const edge of this.vertices[path[path.length - 1]]["edges"]) {
+      if (edge["direction"] === "from" && edge["value"] === path[0]) {
+        pathEdges.push(edge["metadata"]["edgeID"]);
+      }
+    }
+
+    const color = this.#generateRandomColor();
+    CanvasChangeBorderColor(path, color);
+    CanvasChangeBorderColor(pathEdges, color);
+  };
+
+  #generateRandomColor = () => {
+    const colors = {
+      aqua: "#00ffff",
+      blue: "#0000ff",
+      brown: "#a52a2a",
+      cyan: "#00ffff",
+      darkblue: "#00008b",
+      darkcyan: "#008b8b",
+      darkgrey: "#a9a9a9",
+      darkgreen: "#006400",
+      darkkhaki: "#bdb76b",
+      darkmagenta: "#8b008b",
+      darkorange: "#ff8c00",
+      darkorchid: "#9932cc",
+      darkred: "#8b0000",
+      darksalmon: "#e9967a",
+      darkviolet: "#9400d3",
+      fuchsia: "#ff00ff",
+      gold: "#ffd700",
+      green: "#008000",
+      indigo: "#4b0082",
+      lightgreen: "#90ee90",
+      lightpink: "#ffb6c1",
+      lime: "#00ff00",
+      magenta: "#ff00ff",
+      maroon: "#800000",
+      navy: "#000080",
+      orange: "#ffa500",
+      pink: "#ffc0cb",
+      purple: "#800080",
+      violet: "#800080",
+      red: "#ff0000",
+      yellow: "#ffff00",
+    };
+    const randomProperty = function (obj) {
+      const keys = Object.keys(obj);
+      return obj[keys[(keys.length * Math.random()) << 0]];
+    };
+
+    return randomProperty(colors);
+  };
+
+  #getAdjacencyList = () => {
+    let adjacencyList = {};
+
+    Object.keys(this.vertices).forEach((vertex) => {
+      this.vertices[vertex]["edges"].forEach((edge) => {
+        if (edge["direction"] === "from") {
+          if (!adjacencyList.hasOwnProperty(vertex)) {
+            adjacencyList[vertex] = [];
+          }
+          adjacencyList[vertex].push(edge["value"]);
+        }
+      });
+    });
+
+    return adjacencyList;
+  };
 
   /**
    * Приватная функция-член класс, которая проверяет позицию вершины. Для этого мы итерируемся по массиву
@@ -962,11 +950,11 @@ class Graph {
     // Удаляем ребро из массива ребер первой вершины
     this.vertices[firstVertexID]["edges"] = this.vertices[firstVertexID][
       "edges"
-    ].filter((edge) => edge.value !== secondVertexID);
+    ].filter((e) => e["metadata"]["edgeID"] !== edge["metadata"]["edgeID"]);
     // Удаляем ребро из массива ребер второй вершины
     this.vertices[secondVertexID]["edges"] = this.vertices[secondVertexID][
       "edges"
-    ].filter((edge) => edge.value !== firstVertexID);
+    ].filter((e) => e["metadata"]["edgeID"] !== edge["metadata"]["edgeID"]);
   };
 
   /**
@@ -1461,16 +1449,17 @@ class Graph {
     // графовой модели
 
     let levels = {}; // объект для хранения уровней вершин
-    for (let i = 0; i !== 10; ++i) {
-      for (let line of lines) {
-        line = line.trim();
+    let vertices = new Set();
 
+    for (let j = 0; j < lines.length; ++j) {
+      for (let i = 0; i < lines.length; ++i) {
+        lines[i] = lines[i].trim();
         // Нашли стартовую вершину
-        if (line.indexOf("__BEGIN__") !== -1) {
+        if (lines[i].indexOf("__BEGIN__") !== -1) {
           levels["1"] = []; // в объекте levels по ключу "1" создаем пустой массив
           levels["1"].push({
             // в массив добавляем название стартовой вершины
-            [line.substring(line.lastIndexOf(" ") + 1)]: "", // название последней вершины находится легко: из строки
+            [lines[i].substring(lines[i].lastIndexOf(" ") + 1)]: [], // название последней вершины находится легко: из строки
             // берем подстроку, которая начинается с последнего пробела, это и будет название нашей вершины
           });
           continue; // т.к. мы нашли стартовую вершину, мы инициализировали объект levels, выполнение далее идущего кода
@@ -1479,16 +1468,21 @@ class Graph {
 
         // Нашли конечную вершину => просто переходим к следующей строке описания графовой модели, смысла обрабатывать эту
         // ситуацию отдельно нет, т.к. в ходе работы алгоритма, правая вершина и так окажется на самом последнем уровне,
-        if (line.indexOf("__END__") !== -1) {
+        if (lines[i].indexOf("__END__") !== -1) {
           continue;
         }
 
         // Наша задача получить массив из двух элементов, 1-й элемент это вершина из которой выходит ребро, 2-й элемент
         // это вершина в которую приходит ребро (s1 => s2, parts[0] = s1, parts[1] = s2)
         const parts =
-          line.indexOf("->") !== -1 ? line.split("->") : line.split("=>");
+          lines[i].indexOf("->") !== -1
+            ? lines[i].split("->")
+            : lines[i].split("=>");
         const from = parts[0].trim(); // название вершины откуда пришло ребро
         const to = parts[1].trim().split(" ")[0]; // название вершины куда пришло ребро
+
+        vertices.add(from);
+        vertices.add(to);
 
         const fromVertexLevel = parseInt(this.#findLevel(levels, from)); // получаем уровень на котором располагается
         // вершина из которой выходит ребро
@@ -1500,23 +1494,7 @@ class Graph {
         }
 
         // Проверяем, что текущая связь между вершинами является циклом
-        let isCycle = false; // флаг
-        // Итерируемся по объекту levels
-        Object.values(levels).forEach((level) => {
-          // Для каждого уровня нам необходимо просмотреть массив объектов этого уровня
-          level.forEach((vertex) => {
-            // Для каждого элемента массива - это объект итерируемся по свойствам этого объекта и проверяем, что
-            // текущее свойство равно полученной вершине from и что массив вершин по этому ключу содержит вершину to
-            Object.keys(vertex).forEach((key) => {
-              if (key === from && vertex[key].includes(to)) {
-                // В таком случае мы нашли цикл, и нам не надо обрабатывать эти вершины отдельно, так как они уже
-                // построены, а мы лишь встретили очередное ребро
-                isCycle = true;
-              }
-            });
-          });
-        });
-        if (isCycle) {
+        if (this.#checkIsCycle(levels, from, to)) {
           continue;
         }
 
@@ -1543,18 +1521,35 @@ class Graph {
         // Если на предыдущем шаге не встретили такую вершину, то просто по ключу fromVertexLevel + 1 добавляем
         // новый элемент в массив, элемент представляет из себя объект с ключом to, и массивом по значению, массив
         // содержит один элемент - это вершина from
-        if (!flag) {
+        let toVertexLevel = undefined;
+        levelLoop: for (const level in levels) {
+          for (const vertex of levels[level]) {
+            if (vertex.hasOwnProperty(to)) {
+              toVertexLevel = level;
+              break levelLoop;
+            }
+          }
+        }
+
+        if (toVertexLevel < fromVertexLevel) {
+          continue;
+        }
+
+        if (!flag && !levels[fromVertexLevel + 1].hasOwnProperty(to)) {
           levels[fromVertexLevel + 1].push({ [to]: [from] });
         }
       }
     }
 
     // Проверяем корректность созданного объекта levels, более подробное описание - JSdoc к функции checkVerticesLevels
-    const verticesWithNoneVisibility = this.#checkVerticesLevels(levels); // получили объект, который содержит информацию
+    const verticesWithNoneVisibility = this.#checkVerticesLevels(
+      levels,
+      vertices
+    ); // получили объект, который содержит информацию
     // о вершинах которые не надо отрисовывать
 
     // Находим уровень на котором расположено больше всего вершин, с него мы начинаем строить граф, влево и вправо
-    let highest = [];
+    let highest = []; // массив для хранения вершин самого "высокого" уровня
     let highestLevel = 1;
     Object.keys(levels).forEach((level) => {
       if (levels[level].length > highest.length) {
@@ -1569,76 +1564,97 @@ class Graph {
     const startX = 40; // стартовая позиция по координате X - место где будет располагаться первая вершина
     const startY = 100; // "стартовая" позиция по координате Y. Заметим, что это не позиция первой вершины - это
     // позиция где будет располагаться самая верхняя вершина графа
-    const horizontalOffset = 150; // горизонтальный сдвиг (расстояние между вершинами по координате X)
-    const verticalOffset = 100; // вертикальный сдвиг (расстояние между вершинами по координате Y)
+    const horizontalOffset = 200; // горизонтальный сдвиг (расстояние между вершинами по координате X)
+    const verticalOffset = 150; // вертикальный сдвиг (расстояние между вершинами по координате Y)
 
     // Начинаем отрисовку графа с отрисовки уровня с самым большим количеством вершин в нем
     let cx = startX + horizontalOffset * (parseInt(highestLevel) - 1); // координата X этого уровня
-    let cy = startY; // координата Y равна стартовой позиции по координате Y
+    let cy =
+      startY - verticalOffset * verticesWithNoneVisibility[highestLevel].length; // координата Y равна стартовой позиции по координате Y
+    // Итерируемся по массиву - строим вершины
     highest.forEach((vertex) => {
       Object.keys(vertex).forEach((current) => {
         if (!verticesWithNoneVisibility[highestLevel].includes(current)) {
           this.#addVertexFromADOT(cx, cy, current);
         }
         positions[current] = {
+          // Ключ - название вершины, значение - позиция по координате X, позиция по координате Y
           x: cx,
           y: cy,
         };
       });
-      cy += verticalOffset;
+      cy += verticalOffset; // инкрементируем координату по Y на значение равное вертикальному сдвигу
     });
 
-    let leftLevel = parseInt(highestLevel) - 1;
-    let cxLeft = cx;
+    // Строим вершины слева от самого высокого уровня
+    let leftLevel = parseInt(highestLevel) - 1; // левый уровень
+    let cxLeft = cx; // координата по X для левого подграфа
     while (leftLevel > 0) {
-      cxLeft -= horizontalOffset;
+      // пока не просмотрим все уровни включая 1-й
+      cxLeft -= horizontalOffset; // сдвигаем координату X на значение равное горизонтальному сдвигу
       for (let i = 0; i < levels[leftLevel].length; ++i) {
+        // Итерируемся по массиву вершин текущего уровня
         Object.keys(levels[leftLevel][i]).forEach((value) => {
-          let to = [];
-          for (const element of levels[leftLevel + 1]) {
-            Object.keys(element).forEach((key) => {
-              element[key].forEach((e) => {
-                if (e === value) {
-                  to.push(key);
-                }
+          // Для каждого элемента массива (вершины) находим список связанных с ней вершин
+          let to = []; // массив для сохранения связанных вершин
+
+          // Итерируемся по всем уровням и ищем связанные вершины
+          Object.keys(levels).forEach((level) => {
+            levels[level].forEach((arrayElement) => {
+              Object.keys(arrayElement).forEach((vertex) => {
+                arrayElement[vertex].forEach((connectedVertex) => {
+                  if (connectedVertex === value) {
+                    to.push(vertex);
+                  }
+                });
               });
             });
-          }
-          let firstY = 10000,
+          });
+
+          // Логика: найти координату Y самой верхней (минимум) связанной вершины, найти координату Y самой нижней
+          // (максимум) связанной вершины
+          let firstY = 10000, // инициализируем переменные для хранения минимума и максимума
             lastY = 0;
-          for (let j = 0; j < to.length; ++j) {
-            const yPos = parseInt(positions[to[j]]["y"]);
+          to.forEach((vertex) => {
+            const yPos = parseInt(positions[vertex]["y"]); // из объекта positions по названию связанной вершины
+            // достаем координату по Y связанной вершины
+
+            // Простой поиск минимума и максимума
             if (yPos > lastY) {
               lastY = yPos;
             }
             if (yPos < firstY) {
               firstY = yPos;
             }
-          }
-          cy = firstY + (lastY - firstY) / 2;
-          for (const currentVertex in levels[leftLevel][i]) {
-            if (
-              !verticesWithNoneVisibility[leftLevel].includes(currentVertex)
-            ) {
-              this.#addVertexFromADOT(cxLeft, cy, currentVertex);
+          });
+
+          cy = firstY + (lastY - firstY) / 2; // координата Y для текущей вершины - должна быть центрирована
+          // по вертикали относительно связанных вершин
+
+          // Строим вершину
+          Object.keys(levels[leftLevel][i]).forEach((vertex) => {
+            if (!verticesWithNoneVisibility[leftLevel].includes(vertex)) {
+              this.#addVertexFromADOT(cxLeft, cy, vertex);
             }
-            positions[currentVertex] = {
+            positions[vertex] = {
               x: cxLeft,
               y: cy,
             };
-          }
+          });
         });
       }
-      --leftLevel;
+      --leftLevel; // декрементируем уровень - спускаемся на уровень ниже
     }
 
+    // Аналогичная логика и для построения вершин, которые располагаются справа от самого большого уровня
     let rightLevel = parseInt(highestLevel) + 1;
-    let end = 0;
+    let end = 0; // последний уровень, необходимо, чтобы остановить итерацию цикла while
     Object.keys(levels).forEach((key) => {
       if (parseInt(key) > end) {
         end = parseInt(key);
       }
     });
+
     let cxRight = cx;
     while (rightLevel <= end) {
       cxRight += horizontalOffset;
@@ -1646,17 +1662,17 @@ class Graph {
         Object.keys(levels[rightLevel][i]).forEach((key) => {
           let firstY = 10000,
             lastY = 0;
-          for (let j = 0; j < levels[rightLevel][i][key].length; ++j) {
-            const yPos = parseInt(
-              positions[levels[rightLevel][i][key][j]]["y"]
-            );
+
+          levels[rightLevel][i][key].forEach((vertex) => {
+            const yPos = parseInt(positions[vertex]["y"]);
             if (yPos > lastY) {
               lastY = yPos;
             }
             if (yPos < firstY) {
               firstY = yPos;
             }
-          }
+          });
+
           cy = firstY + (lastY - firstY) / 2;
 
           if (!verticesWithNoneVisibility[rightLevel].includes(key)) {
@@ -1670,6 +1686,25 @@ class Graph {
       }
       ++rightLevel;
     }
+  };
+
+  #checkIsCycle = (levels, from, to) => {
+    let isCycle = false;
+    Object.values(levels).forEach((level) => {
+      // Для каждого уровня нам необходимо просмотреть массив объектов этого уровня
+      level.forEach((vertex) => {
+        // Для каждого элемента массива - это объект итерируемся по свойствам этого объекта и проверяем, что
+        // текущее свойство равно полученной вершине from и что массив вершин по этому ключу содержит вершину to
+        Object.keys(vertex).forEach((key) => {
+          if (key === from && vertex[key].includes(to)) {
+            // В таком случае мы нашли цикл, и нам не надо обрабатывать эти вершины отдельно, так как они уже
+            // построены, а мы лишь встретили очередное ребро
+            isCycle = true;
+          }
+        });
+      });
+    });
+    return isCycle;
   };
 
   /**
@@ -1687,9 +1722,10 @@ class Graph {
    * вершину на уровень где больше всего вершин (это необходимо для корректной отрисовки графа)
    *
    * @param levels - объект который содержит уровни вершин
+   * @param vertices - коллекция вершин, которые используются в графовой модели
    * @returns {{}} - объект вершин которые необходимо скрыть при отрисовке
    */
-  #checkVerticesLevels = (levels) => {
+  #checkVerticesLevels = (levels, vertices) => {
     let verticesWithNoneVisibility = {}; // Объект для хранения вершин, которые находятся не на своем уровне, в дальнейшем при
     // отрисовке вершин, мы будем проверять, что вершина отсутствует в этом объекте
     Object.keys(levels).forEach((level) => {
@@ -1699,22 +1735,25 @@ class Graph {
     });
 
     // Поиск дубликата вершины, который располагается на более раннем уровне
-    loop: for (const level in levels) {
-      for (const elements of levels[level]) {
-        for (const vertex in elements) {
-          for (const level1 in levels) {
-            if (level1 === level) {
-              continue loop;
-            }
-            for (const elements1 of levels[level1]) {
-              for (const vertex1 in elements1) {
-                if (vertex === vertex1) {
-                  elements[vertex] = elements[vertex].concat(
-                    elements1[vertex1]
-                  );
-                  verticesWithNoneVisibility[level1].push(vertex1);
+
+    for (const vertex of vertices) {
+      const vertexLastLevel = this.#findLevel(levels, vertex);
+
+      for (const level in levels) {
+        if (level === vertexLastLevel) {
+          break;
+        }
+
+        for (const elements of levels[level]) {
+          for (const v in elements) {
+            if (v === vertex) {
+              for (const e of levels[vertexLastLevel]) {
+                if (e.hasOwnProperty(v)) {
+                  e[v] = e[v].concat(elements[v]);
                 }
               }
+
+              verticesWithNoneVisibility[level].push(v);
             }
           }
         }
@@ -1739,10 +1778,10 @@ class Graph {
                 if (levels[fromVertexLevel][i].hasOwnProperty(fromVertex)) {
                   idx = i;
                   el = levels[fromVertexLevel][i];
+                  levels[fromVertexLevel].splice(idx, 1);
+                  levels[highestLevel].push(el);
                 }
               }
-              levels[fromVertexLevel].splice(idx, 1);
-              levels[highestLevel].push(el);
             }
           }
         }
@@ -1776,9 +1815,18 @@ class Graph {
         lvl = level;
       }
     });
+
     return lvl;
   };
 
+  /**
+   * Приватная функция-член, которая ищет уровень с самым большим количеством вершин в нем, между левым и правым уровнями
+   *
+   * @param levels - объект содержащий уровни
+   * @param leftLevel - левый уровень
+   * @param rightLevel - правый уровень
+   * @returns {string} - самый больший по количеству вершин уровень
+   */
   #findHighestLevelBetween = (levels, leftLevel, rightLevel) => {
     let highest = levels[leftLevel].length;
     let highestLevel = leftLevel;
@@ -1789,7 +1837,6 @@ class Graph {
       if (parseInt(level) > parseInt(rightLevel)) {
         continue;
       }
-      console.log("LEVELS", level, levels[level].level);
       if (levels[level].length > highest) {
         highest = levels[level].length;
         highestLevel = level;
@@ -1799,6 +1846,14 @@ class Graph {
     return highestLevel;
   };
 
+  /**
+   * Приватная функция-член, которая реализует создание вершины при импорте из формата aDOT. Логика функции немного
+   * отличается от логики создания вершины простым кликом по холсту, поэтому вынесена в отдельную функцию.
+   *
+   * @param positionX - центр вершины по оси X
+   * @param positionY - центр вершины по оси Y
+   * @param label - название (метка) вершины
+   */
   #addVertexFromADOT = (positionX, positionY, label) => {
     const id = "vertex" + ++this.vertexID;
     const path = CanvasCreateVertex(
@@ -1809,6 +1864,7 @@ class Graph {
       this.borderWidth
     );
     this.createdVerticesPositions.push([id, positionX, positionY]);
+    this.createdVerticesLabels.add(label);
     const pathID = "vertex" + this.vertexID + "_path";
     const labelID = "vertex" + this.vertexID + "_label";
     CanvasCreateTextByPath(path, label, pathID, labelID, 50, this.radius / 10);
@@ -1826,10 +1882,228 @@ class Graph {
       },
     };
   };
+
+  /**
+   * Приватная функция-член, которая занимается рендерингом ребер при импорте из формата aDOT
+   *
+   * @param idx - индекс в массиве строк файла
+   * @param lines - массив строк файла
+   */
+  #renderEdges = (idx, lines) => {
+    // Пока не встретим строку в которой содержатся стрелки, инкрементируем индекс
+    while (lines[idx].indexOf("->") === -1 && lines[idx].indexOf("=>") === -1) {
+      ++idx;
+    }
+    const startIdx = idx; // стартовый индекс на элемент массива с которого начинается описание графовой модели
+    // Пока есть описание графовой модели инкрементируем индекс
+    while (lines[idx].indexOf("->") !== -1 || lines[idx].indexOf("=>") !== -1) {
+      ++idx;
+    }
+    const endIdx = idx; // конечный индекс на элемент массива на котором заканчивается описание графовой модели
+    lines = lines.slice(startIdx, endIdx); // обрезаем массив, чтобы осталось только описание графовой модели
+
+    let skippedLines = []; // массив который будет хранить пропущенные линии, при парсинге ребер может получиться такая
+    // ситуация что между вершинами есть цикл, но прямое ребро (без кривых Безье) еще не построено, поэтому отрисовку
+    // этих ребер необходимо отложить и обработать уже после обработки всех вершин
+
+    for (let line of lines) {
+      // Пропускаем строки которые описывают стартовую и конченые вершины, при построении ребер они нас не интересуют
+      if (line.indexOf("__BEGIN__") !== -1 || line.indexOf("__END__") !== -1) {
+        continue;
+      }
+      line = line.trim(); // удаляем лишние пробелы в начале и в конце строки
+      const parts = line.split(" "); // разбиваем строку по пробелам, получим 4 элемента массива
+      const fromID = this.#getVertexIDbyName(parts[0].trim()); // 1-й элемент - вершина из которой выходит ребро
+      const toID = this.#getVertexIDbyName(parts[2].trim()); // 3-й элемент - вершина в которую приходит ребро
+      const edge = parts[3].trim(); // 4-й элемент - морфизм
+
+      // Получаем координаты по X для вершины из которой выходит ребро и вершины в которую приходит ребро
+      let fromX = 0,
+        toX = 0;
+      Object.keys(this.vertices).forEach((vertex) => {
+        if (vertex === fromID) {
+          fromX = parseInt(this.vertices[vertex]["metadata"]["position"]["x"]);
+        }
+        if (vertex === toID) {
+          toX = parseInt(this.vertices[vertex]["metadata"]["position"]["x"]);
+        }
+      });
+
+      // Если вершина в которую приходит ребро находится левее чем вершина из которой выходит ребро, то вероятно это
+      // цикл и стоит отложить отрисовку этих ребер, поэтому мы сохраняем их в отдельный массив
+      if (toX < fromX) {
+        skippedLines.push(line);
+      } else {
+        this.#addEdgeFromADOT(fromID, toID, edge);
+      }
+    }
+
+    // Отрисовка отложенных ребер
+    for (const line of skippedLines) {
+      const parts = line.split(" ");
+      const fromID = this.#getVertexIDbyName(parts[0].trim()); // 1-й элемент - вершина из которой выходит ребро
+      const toID = this.#getVertexIDbyName(parts[2].trim()); // 3-й элемент - вершина в которую приходит ребро
+      const edge = parts[3].trim(); // 4-й элемент - морфизм
+      let fromX = 0,
+        toX = 0;
+      Object.values(this.vertices).forEach((vertex) => {
+        if (vertex["metadata"]["label"] === fromID) {
+          fromX = parseInt(vertex["metadata"]["position"]["x"]);
+        }
+        if (vertex["metadata"]["label"] === toID) {
+          toX = parseInt(vertex["metadata"]["position"]["x"]);
+        }
+      });
+      this.#addEdgeFromADOT(fromID, toID, edge);
+    }
+  };
+
+  /**
+   * Приватная функция-член, которая реализует отрисовку и сохранение информации о ребрах
+   *
+   * @param fromVertexID - название вершины откуда выходит ребро
+   * @param toVertexID - название вершины куда приходит ребро
+   * @param edge - edge графа
+   * @returns {boolean} - успешно/неуспешно построено
+   */
+  #addEdgeFromADOT = (fromVertexID, toVertexID, edge) => {
+    if (fromVertexID === toVertexID) {
+      setInformationConsoleMessage(
+        "Синтаксическая ошибка. Вы не можете построить из вершины ребро в нее саму"
+      );
+      return false;
+    }
+    const amount = this.#countEdgesAmount(fromVertexID, toVertexID);
+
+    const x1 = this.vertices[fromVertexID]["metadata"]["position"]["x"];
+    const y1 = this.vertices[fromVertexID]["metadata"]["position"]["y"];
+    const x2 = this.vertices[toVertexID]["metadata"]["position"]["x"];
+    const y2 = this.vertices[toVertexID]["metadata"]["position"]["y"];
+
+    const id = "edge" + ++this.edgeID;
+    let path, edgeType;
+    if (amount === 0) {
+      path = CanvasCreateStraightEdge(
+        x1,
+        y1,
+        x2,
+        y2,
+        this.radius,
+        id,
+        this.arrowheadSize,
+        this.borderWidth
+      );
+      edgeType = "straight";
+    } else {
+      path = CanvasCreateBezierEdge(
+        x1,
+        y1,
+        x2,
+        y2,
+        this.radius,
+        id,
+        this.arrowheadSize,
+        this.borderWidth,
+        amount * 3
+      );
+      this.vertices[fromVertexID]["cycle"] = true;
+      edgeType = "bezier";
+    }
+    const e = edge.substring(edge.indexOf("=") + 1, edge.indexOf("]"));
+    let predicate, func;
+    for (const currentEdge in this.edges) {
+      if (currentEdge === e) {
+        predicate = this.edges[currentEdge]["predicate"];
+        func = this.edges[currentEdge]["function"];
+      }
+    }
+    const label = `<${predicate}, ${func}>`;
+    const pathID = "edge" + this.edgeID + "_path";
+    const labelID = "edge" + this.edgeID + "_label";
+    CanvasCreateTextByPath(path, label, pathID, labelID, 50, -10);
+
+    this.vertices[fromVertexID]["edges"].push(
+      // Для первой вершины
+      {
+        value: toVertexID,
+        direction: "from",
+        label: label,
+        type: edgeType,
+        predicate: predicate,
+        function: func,
+        metadata: {
+          edgeID: id,
+          pathID: pathID,
+          labelID: labelID,
+        },
+      }
+    );
+    this.vertices[toVertexID]["edges"].push({
+      value: fromVertexID,
+      direction: "to",
+      label: label,
+      type: edgeType,
+      predicate: predicate,
+      function: func,
+      metadata: {
+        edgeID: id,
+        pathID: pathID,
+        labelID: labelID,
+      },
+    });
+  };
+
+  /**
+   * Приватная функция-член, которая ищет ID вершины по ее названию
+   *
+   * @param name - название
+   * @returns {string} - ID
+   */
+  #getVertexIDbyName = (name) => {
+    let id;
+    for (const vertex in this.vertices) {
+      if (this.vertices[vertex]["metadata"]["label"] === name) {
+        id = vertex;
+      }
+    }
+
+    return id;
+  };
+
+  /**
+   * Приватная функция-член, для парсинга параллелизма
+   *
+   * @param lines - массив строк файла в формате aDOT
+   */
+  #parseParallelism = (lines) => {
+    let idx = 0;
+    while (
+      lines[idx].indexOf("parallelism") === -1 &&
+      idx !== lines.length - 1
+    ) {
+      ++idx;
+    }
+    while (lines[idx].indexOf("parallelism") !== -1) {
+      const parts = lines[idx].split(" ");
+      const label = parts[0].trim();
+      const parallelismMethod = parts[1].substring(
+        parts[1].indexOf("=") + 1,
+        parts[1].indexOf("]")
+      );
+      for (const vertex in this.vertices) {
+        if (this.vertices[vertex]["metadata"]["label"] === label) {
+          this.vertices[vertex]["parallelism"] = parallelismMethod;
+        }
+      }
+      ++idx;
+    }
+  };
 }
 
 let graph = new Graph();
 let actionsDisabled = false;
+
+let lastButtonSelected;
 
 const setVertexHandler = (event) => {
   const rect = svgCanvas.getBoundingClientRect();
@@ -1846,6 +2120,9 @@ const setVertexesHandler = () => {
     svgCanvas.removeEventListener("click", deleteEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
+    DOMChangeColor(SetVertexButton, "#cccccc");
+    lastButtonSelected = SetVertexButton;
     setInformationConsoleMessage(
       `Вы выбрали 'Добавить вершину', кликните на холст, чтобы добавить вершину`
     );
@@ -1869,6 +2146,9 @@ const deleteVertexesHandler = () => {
     svgCanvas.removeEventListener("click", deleteEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
+    DOMChangeColor(DeleteVertexButton, "#cccccc");
+    lastButtonSelected = DeleteVertexButton;
     setInformationConsoleMessage(
       `Вы выбрали 'Удалить вершину', кликните на вершину, чтобы ее удалить`
     );
@@ -1885,6 +2165,7 @@ const setEdgeHandler = (event) => {
     if (id1 === "") {
       // Select first vertex
       id1 = event.target.getAttribute("id");
+      CanvasChangeBorderColor([id1], "#B92808");
       setInformationConsoleMessage(`Выберите вторую вершину`);
       actionsDisabled = true;
     } else {
@@ -1894,6 +2175,7 @@ const setEdgeHandler = (event) => {
         id1 = id2 = "";
         svgCanvas.removeEventListener("click", setEdgeHandler);
       } else {
+        actionsDisabled = false;
         id1 = id2 = "";
       }
     }
@@ -1906,6 +2188,9 @@ const setEdgesHandler = () => {
     svgCanvas.removeEventListener("click", deleteEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
+    DOMChangeColor(SetEdgeButton, "#cccccc");
+    lastButtonSelected = SetEdgeButton;
     setInformationConsoleMessage(
       `Вы выбрали 'Добавить ребро', выберите первую вершину`
     );
@@ -1928,6 +2213,9 @@ const deleteEdgesHandler = () => {
     svgCanvas.removeEventListener("click", setEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
+    DOMChangeColor(DeleteEdgeButton, "#cccccc");
+    lastButtonSelected = DeleteEdgeButton;
     setInformationConsoleMessage(
       `Вы выбрали 'Удалить ребро', кликните на ребро, чтобы его удалить`
     );
@@ -1943,6 +2231,7 @@ const determineStartAndEndVertices = (event) => {
   if (event.target.closest(".vertex")) {
     if (startVertex === undefined) {
       startVertex = event.target.getAttribute("id");
+      CanvasChangeBorderColor([startVertex], "#B92808");
       setInformationConsoleMessage("Выберите конечную вершину кликну на нее");
       actionsDisabled = true;
     } else {
@@ -1967,6 +2256,9 @@ const exportHandler = () => {
     svgCanvas.removeEventListener("click", deleteEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
+    DOMChangeColor(ExportADOTButton, "#cccccc");
+    lastButtonSelected = ExportADOTButton;
     setInformationConsoleMessage("Выберите стартовую вершину кликнув на нее");
     svgCanvas.addEventListener("click", determineStartAndEndVertices);
   }
@@ -1981,10 +2273,13 @@ const fileToText = (file, callback) => {
   };
 };
 const UploadHandler = () => {
+  DOMChangeColor(lastButtonSelected);
   const file = ImportADOTButton.files.item(0);
-  fileToText(file, (text) => {
-    graph.ImportADOT(text);
-  });
+  if (file) {
+    fileToText(file, (text) => {
+      graph.ImportADOT(text);
+    });
+  }
 };
 ImportADOTButton.addEventListener("change", UploadHandler);
 
@@ -1996,10 +2291,27 @@ const ClearCanvasHandler = () => {
     svgCanvas.removeEventListener("click", deleteEdgeHandler);
     svgCanvas.removeEventListener("click", determineStartAndEndVertices);
 
+    DOMChangeColor(lastButtonSelected);
     graph.Clear();
   }
 };
 ClearCanvasButton.addEventListener("click", ClearCanvasHandler);
+
+const FindCyclesHandler = () => {
+  if (!actionsDisabled) {
+    svgCanvas.removeEventListener("click", setVertexHandler);
+    svgCanvas.removeEventListener("click", deleteVertexHandler);
+    svgCanvas.removeEventListener("click", setEdgeHandler);
+    svgCanvas.removeEventListener("click", deleteEdgeHandler);
+    svgCanvas.removeEventListener("click", determineStartAndEndVertices);
+
+    DOMChangeColor(lastButtonSelected);
+    console.time("Start");
+    graph.FindCycles();
+    console.timeEnd("Start");
+  }
+};
+FindCyclesButton.addEventListener("click", FindCyclesHandler);
 
 /**
  * Функция для создания вершины на холсте
@@ -2019,7 +2331,7 @@ const CanvasCreateVertex = (x, y, id, radius, borderWidth) => {
     .attr("cx", x)
     .attr("cy", y)
     .attr("r", radius)
-    .attr("strokeWidth", borderWidth)
+    .attr("stroke-width", borderWidth)
     .attr("id", id)
     .attr("fill", "#FFFFFF")
     .attr("stroke", "#000000")
@@ -2078,6 +2390,7 @@ const CanvasCreateTextByPath = (
  * @param radius - радиус вершины
  * @param id - ID ребра
  * @param arrowheadSize - размер стрелки (что это за значение подробнее описано в конструкторе класса)
+ * @param lineWidth - толщина линии стрелки
  * @returns {*} - путь по которому строилась стрелка, необходим для дальнейшего построения метки ребра по этому пути
  */
 const CanvasCreateStraightEdge = (
@@ -2087,7 +2400,8 @@ const CanvasCreateStraightEdge = (
   y2,
   radius,
   id,
-  arrowheadSize
+  arrowheadSize,
+  lineWidth
 ) => {
   // Вычисляем координаты начала и конца линии
   const [fromX, fromY, toX, toY] = calcLineCoordinatesBetweenVertices(
@@ -2114,7 +2428,8 @@ const CanvasCreateStraightEdge = (
   // Создаем тег <path> и определяем у него необходимые свойства
   svg
     .append("path")
-    .style("stroke", "black")
+    .attr("stroke", "black")
+    .attr("stroke-width", lineWidth)
     .attr("d", path)
     .attr("id", id)
     .attr("class", "edge");
@@ -2145,6 +2460,7 @@ const CanvasCreateStraightEdge = (
  * @param id - ID ребра
  * @param arrowheadSize - размер стрелки (подробнее описано в конструкторе класса Graph)
  * @param coefficient - коэффициент для точек по которым будет строиться кривая Безье
+ * @param lineWidth - толщина линии стрелки
  * @returns {*} - путь по которому строилась стрелка, необходим для дальнейшего построения метки ребра по этому пути
  */
 const CanvasCreateBezierEdge = (
@@ -2155,6 +2471,7 @@ const CanvasCreateBezierEdge = (
   radius,
   id,
   arrowheadSize,
+  lineWidth,
   coefficient
 ) => {
   // Координаты начала и конца мнимой прямой линии между вершинами
@@ -2273,8 +2590,9 @@ const CanvasCreateBezierEdge = (
     // Добавляем тег <path> и определяем необходимые свойства
     svg
       .append("path")
-      .style("stroke", "black")
-      .style("fill", "transparent")
+      .attr("stroke", "black")
+      .attr("stroke-width", lineWidth)
+      .attr("fill", "transparent")
       .attr("d", path)
       .attr("id", id)
       .attr("class", "edge");
@@ -2288,8 +2606,9 @@ const CanvasCreateBezierEdge = (
     // Добавляем тег <path> и определяем необходимые свойства
     svg
       .append("path")
-      .style("stroke", "black")
-      .style("fill", "transparent")
+      .attr("stroke", "black")
+      .attr("stroke-width", lineWidth)
+      .attr("fill", "transparent")
       .attr("d", path)
       .attr("id", id)
       .attr("class", "edge");
@@ -2593,4 +2912,17 @@ const clearRightSidebar = (rightSidebarBlock) => {
  */
 const CanvasClearAll = () => {
   d3.select("svg").selectAll("*").remove(); // у тега <svg> выбираем всех его детей и удаляем
+};
+
+const DOMChangeColor = (element, color) => {
+  if (element) {
+    element.style.backgroundColor = color || null;
+  }
+};
+
+const CanvasChangeBorderColor = (elementsID, color) => {
+  elementsID.forEach((elementID) => {
+    let element = svgCanvas.getElementById(elementID);
+    element.setAttribute("stroke", color);
+  });
 };

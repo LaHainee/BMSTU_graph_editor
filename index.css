@@ -134,7 +134,7 @@ input[type="file"] {
   margin-bottom: 10px;
   border: 1px solid #000000;
   border-radius: 5px;
-  background: #ffffff;
+  background-color: #ffffff;
 }
 
 .switch-button:hover {
